@@ -36,7 +36,7 @@ class CEMSolver:
         var_scale: float = 1,
         n_steps: int = 30,
         topk: int = 30,
-        device: str | torch.device = 'cpu',
+        device: str | torch.device = "cpu",
         seed: int = 1234,
         callbacks: list[Callback] | None = None,
     ) -> None:
@@ -198,6 +198,9 @@ class CEMSolver:
                     dtype=self.dtype,
                 )
 
+                # null reference candidate
+                null = torch.zeros(1, 1, self.horizon, self.action_dim, device=self.device)
+
                 # Scale and shift: (Batch, N, H, D) * (Batch, 1, H, D) + (Batch, 1, H, D)
                 candidates = candidates * batch_var.unsqueeze(
                     1
@@ -208,6 +211,8 @@ class CEMSolver:
 
                 # Evaluate candidates
                 costs = self.model.get_cost(expanded_infos, candidates)
+                null_cost = self.model.get_cost(expanded_infos, null)
+
 
                 assert isinstance(costs, torch.Tensor), (
                     f'Expected cost to be a torch.Tensor, got {type(costs)}'
@@ -237,6 +242,7 @@ class CEMSolver:
                 # Indexing: candidates[batch_idx, sample_idx]
                 # Result shape: (Batch, K, Horizon, Dim)
                 topk_candidates = candidates[batch_indices, topk_inds]
+                topk_candidates = torch.where(topk_vals[..., 0] < null_cost, topk_candidates, 0)
 
                 # Update Mean and Variance based on Top-K
                 prev_mean = batch_mean
