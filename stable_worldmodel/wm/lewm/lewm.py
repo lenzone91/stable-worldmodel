@@ -75,12 +75,10 @@ class LeWM(nn.Module):
         if 'emb' not in info:
             _init = {k: v[:, 0] for k, v in info.items() if torch.is_tensor(v)}
             _init = self.encode(_init)
-            info['emb'] = (
-                _init['emb'].detach().unsqueeze(1).expand(B, S, -1, -1)
-            )
+            info['emb'] = _init['emb'].detach()
 
         # flatten batch and sample dimensions for rollout
-        emb_init = rearrange(info['emb'], 'b s ... -> (b s) ...')
+        emb_init = rearrange(info['emb'].unsqueeze(1).expand(B, S, -1, -1), 'b s ... -> (b s) ...')
         act_flat = rearrange(act_0, 'b s ... -> (b s) ...')
         act_future_flat = rearrange(act_future, 'b s ... -> (b s) ...')
         all_act_emb = self.action_encoder(

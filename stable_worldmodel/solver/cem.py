@@ -231,19 +231,22 @@ class CEMSolver:
                 topk_vals, topk_inds = torch.topk(
                     costs, k=self.topk, dim=1, largest=False
                 )
+                topk_filtered_inds = torch.where(topk_vals < null_cost)
+                topk_inds = topk_inds[topk_filtered_inds]
 
                 # Gather Top-K Candidates
                 # We need to select the specific candidates corresponding to topk_inds
                 batch_indices = (
                     torch.arange(current_bs, device=self.device)
                     .unsqueeze(1)
-                    .expand(-1, self.topk)
+                    .expand(-1, int(topk_inds.shape[0]))
                 )
 
                 # Indexing: candidates[batch_idx, sample_idx]
                 # Result shape: (Batch, K, Horizon, Dim)
                 topk_candidates = candidates[batch_indices, topk_inds]
-                topk_candidates = torch.where(topk_vals[..., 0] < null_cost, topk_candidates, null)
+                if not topk_candidates.shape[1]:
+                    topk_candidates = null.expand(current_bs, *null.shape[1:])
 
                 # Update Mean and Variance based on Top-K
                 prev_mean = batch_mean
