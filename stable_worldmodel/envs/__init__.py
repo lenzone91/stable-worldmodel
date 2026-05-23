@@ -32,7 +32,7 @@ register(
 )
 
 register(
-    id='swm/TwoRoom-v1',
+    id='swm/TwoRooms-v1',
     entry_point='stable_worldmodel.envs.two_room.env:TwoRoomEnv',
 )
 

@@ -204,11 +204,6 @@ class ICEMSolver:
                 expanded_infos[k] = v_batch
 
             prev_topk_candidates = None
-            batch_indices = (
-                torch.arange(current_bs, device=self.device)
-                .unsqueeze(1)
-                .expand(-1, self.topk)
-            )
 
             # Precompute FFT scale for colored noise
             noise_shape = (
@@ -273,7 +268,12 @@ class ICEMSolver:
                         self._action_low, self._action_high
                     )
 
+                # null reference candidate
+                base = torch.tensor(self.null, dtype=torch.float32, device=self.device)
+                null = base[:, None, None, :].repeat(1, 1, self.horizon, self._config.action_block)
+
                 costs = self.model.get_cost(expanded_infos, candidates)
+                null_cost = self.model.get_cost(expanded_infos, null)
 
                 assert isinstance(costs, torch.Tensor), (
                     f'Expected cost to be a torch.Tensor, got {type(costs)}'
@@ -289,7 +289,17 @@ class ICEMSolver:
                 topk_vals, topk_inds = torch.topk(
                     costs, k=self.topk, dim=1, largest=False
                 )
+                topk_filtered_inds = torch.where(topk_vals < null_cost)
+                topk_inds = topk_inds[topk_filtered_inds]
+                
+                batch_indices = (
+                    torch.arange(current_bs, device=self.device)
+                    .unsqueeze(1)
+                    .expand(-1, int(topk_inds.shape[0]))
+                )
                 topk_candidates = candidates[batch_indices, topk_inds]
+                if not topk_candidates.shape[1]:
+                    topk_candidates = null.expand(current_bs, *null.shape[1:])
 
                 prev_topk_candidates = topk_candidates
 
