@@ -164,6 +164,11 @@ class PredictiveSamplingSolver:
 
             costs = self.model.get_cost(expanded_infos, candidates)
 
+            # null reference candidate
+            base = torch.tensor(self.null, dtype=torch.float32, device=self.device)
+            null = base[:, None, None, :].repeat(1, 1, self.horizon, self._config.action_block)
+            null_cost = self.model.get_cost(expanded_infos, null)
+
             assert isinstance(costs, torch.Tensor), (
                 f'Expected cost to be a torch.Tensor, got {type(costs)}'
             )
@@ -180,6 +185,10 @@ class PredictiveSamplingSolver:
             batch_indices = torch.arange(current_bs, device=self.device)
             best_candidates = candidates[batch_indices, best_idx]
             best_costs = costs[batch_indices, best_idx]
+
+            filtered_inds = torch.where(best_costs > null_cost[0])
+            best_candidates[filtered_inds[0]] = null[0]
+            best_costs[filtered_inds[0]] = null_cost[0]
 
             nominal[start_idx:end_idx] = best_candidates
             outputs['costs'].extend(best_costs.cpu().tolist())
