@@ -321,6 +321,7 @@ class WorldModelPolicy(BasePolicy):
         self.transform = transform or {}
         self._action_buffer: list[deque[torch.Tensor]] | None = None
         self._next_init: torch.Tensor | None = None
+        self.solver.null = self.process['action'].transform(np.array([[0, 0]], dtype="float32"))
 
     @property
     def flatten_receding_horizon(self) -> int:
